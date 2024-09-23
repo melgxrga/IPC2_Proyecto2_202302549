@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulación de Máquinas</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Simulación de Máquinas</h1>
+    <nav>
+        <ul class="menu">
+            <li><a href="/">Inicio</a></li>
+            <li>
+                <form action="{{ url_for('index') }}" method="post" enctype="multipart/form-data" class="navbar-form">
+                    <label for="file" class="navbar-label">Cargar XML:</label>
+                    <input type="file" id="file" name="file" required class="navbar-input">
+                    <button type="submit" class="navbar-button">Cargar</button>
+                </form>
+            </li>
+        </ul>
+    </nav>
+
+    {% if resultados %}
+    <section id="resultados">
+        <h2>Resultados de la Simulación</h2>
+        <table id="resultadosTabla">
+            <thead>
+                <tr>
+                    <th>Máquina</th>
+                    <th>Producto</th>
+                    <th>Movimientos</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for resultado in resultados %}
+                <tr>
+                    <td>{{ resultado['maquina'] }}</td>
+                    <td>{{ resultado['producto'] }}</td>
+                    <td>
+                        <ul>
+                            {% for log in resultado['log'] %}
+                            <li>{{ log }}</li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+</body>
+</html>

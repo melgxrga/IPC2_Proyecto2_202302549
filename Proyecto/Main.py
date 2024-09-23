@@ -1,9 +1,14 @@
 import xml.etree.ElementTree as ET
-import argparse
+from flask import Flask, request, render_template, redirect, url_for
+from werkzeug.utils import secure_filename
+import os
 from Maquina import Maquina
 from Producto import Producto
 from listaEnlazadaSimple import ListaEnlazadaSimple
 from Simulacion import Simulacion
+
+app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = 'uploads'
 
 def leer_xml(ruta_archivo):
     arbol = ET.parse(ruta_archivo)
@@ -31,19 +36,51 @@ def leer_xml(ruta_archivo):
     
     return maquinas
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Simulación de máquinas de ensamblaje.")
-    parser.add_argument("ruta_archivo", help="Ruta del archivo XML con la configuración de las máquinas.")
-    args = parser.parse_args()
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    resultados = None
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            return redirect(url_for('index'))
+        file = request.files['file']
+        if file.filename == '':
+            return redirect(url_for('index'))
+        if file:
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            return redirect(url_for('iniciar_simulacion', ruta_archivo=filepath))
+    return render_template('index.html', resultados=resultados)
 
+@app.route('/simulacion')
+def iniciar_simulacion():
+    ruta_archivo = request.args.get('ruta_archivo')
+    
+    if not ruta_archivo:
+        return redirect(url_for('index'))
+    
     # Leer el archivo XML y obtener las máquinas
-    maquinas = leer_xml(args.ruta_archivo)
+    maquinas = leer_xml(ruta_archivo)
 
     # Ejecutar la simulación para cada máquina y sus productos
-    for i in range(maquinas.longitud()):
-        maquina = maquinas.obtener(i)
-        for j in range(maquina.productos.longitud()):
-            producto = maquina.productos.obtener(j)
+    resultados = ListaEnlazadaSimple()
+    for maquina in maquinas:
+        for producto in maquina.productos:
             simulacion = Simulacion(maquina, producto)
             simulacion.iniciar_simulacion()
-            simulacion.generar_log()
+            log = ListaEnlazadaSimple()
+            for accion in simulacion.log:
+                log.agregar(accion)
+            resultado = {
+                "maquina": maquina.nombre,
+                "producto": producto.nombre,
+                "log": log
+            }
+            resultados.agregar(resultado)
+    
+    return render_template('index.html', resultados=resultados)
+
+if __name__ == "__main__":
+    if not os.path.exists(app.config['UPLOAD_FOLDER']):
+        os.makedirs(app.config['UPLOAD_FOLDER'])
+    app.run(debug=True)
