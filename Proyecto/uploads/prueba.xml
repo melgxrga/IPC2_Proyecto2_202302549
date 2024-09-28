@@ -12,12 +12,6 @@
                     L1C1 L1C2 L2C1 L2C2
                 </elaboracion>
             </Producto>
-            <Producto>
-                <nombre>Producto2</nombre>
-                <elaboracion>
-                    L1C3 L1C4 L2C3 L2C4
-                </elaboracion>
-            </Producto>
         </ListadoProductos>
     </Maquina>
     <Maquina>
@@ -29,7 +23,7 @@
             <Producto>
                 <nombre>Producto3</nombre>
                 <elaboracion>
-                    L1C1 L1C2 L2C1 L2C2 L3C1 L3C2
+                    L1C1 L1C2 L1C3 L2C1 L2C2 L3C1 L3C2
                 </elaboracion>
             </Producto>
             <Producto>

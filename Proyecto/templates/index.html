@@ -11,44 +11,100 @@
     <nav>
         <ul class="menu">
             <li><a href="/">Inicio</a></li>
-            <li>
-                <form action="{{ url_for('index') }}" method="post" enctype="multipart/form-data" class="navbar-form">
-                    <label for="file" class="navbar-label">Cargar XML:</label>
-                    <input type="file" id="file" name="file" required class="navbar-input">
-                    <button type="submit" class="navbar-button">Cargar</button>
-                </form>
-            </li>
+            <li><a href="#" id="cargar-xml-link">Cargar XML</a></li>
         </ul>
     </nav>
 
-    {% if resultados %}
-    <section id="resultados">
-        <h2>Resultados de la Simulación</h2>
-        <table id="resultadosTabla">
-            <thead>
-                <tr>
-                    <th>Máquina</th>
-                    <th>Producto</th>
-                    <th>Movimientos</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for resultado in resultados %}
-                <tr>
-                    <td>{{ resultado['maquina'] }}</td>
-                    <td>{{ resultado['producto'] }}</td>
-                    <td>
-                        <ul>
-                            {% for log in resultado['log'] %}
-                            <li>{{ log }}</li>
+    <h2>Simulación de ensamblaje</h2>
+
+    <section id="inicio">
+        <h2>Tablas de Ensamblaje</h2>
+        {% for producto_nombre, tabla in tablas_ensamblaje %}
+            <h3>Producto: {{ producto_nombre }}</h3>
+            <table id="tablaEnsamblaje">
+                <thead>
+                    <tr>
+                        <th>Tiempo</th>
+                        {% if tabla.cabeza %}
+                            {% set primera_fila = tabla.cabeza.dato %}
+                            {% for i in range(primera_fila.longitud() - 1) %}
+                                <th>Línea de Ensamblaje {{ i + 1 }}</th>
                             {% endfor %}
-                        </ul>
-                    </td>
-                </tr>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in tabla %}
+                        <tr>
+                            {% for celda in fila %}
+                                <td>{{ celda }}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endfor %}
+    </section>
+
+    <section id="seleccion-maquina">
+        <h2>Seleccionar Máquina</h2>
+        <form action="/filtrar_maquina" method="post">
+            <label for="maquina">Seleccionar Máquina:</label>
+            <select name="maquina" id="maquina">
+                {% for maquina in maquinas %}
+                    <option value="{{ maquina.nombre }}">{{ maquina.nombre }}</option>
                 {% endfor %}
-            </tbody>
-        </table>
+            </select>
+            <button type="submit">Filtrar</button>
+        </form>
+    </section>
+
+    {% if productos %}
+    <section id="seleccion-producto">
+        <h2>Seleccionar Producto para Simulación</h2>
+        <form action="/simular_producto" method="post">
+            <label for="producto">Seleccionar Producto:</label>
+            <select name="producto" id="producto">
+                {% for producto in productos %}
+                    <option value="{{ producto.nombre }}">{{ producto.nombre }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Simular</button>
+        </form>
     </section>
     {% endif %}
+
+    <div id="cargar-xml-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Cargar Archivo XML</h2>
+            <form action="{{ url_for('index') }}" method="post" enctype="multipart/form-data" class="navbar-form">
+                <label for="file" class="navbar-label">Cargar XML:</label>
+                <input type="file" id="file" name="file" required class="navbar-input">
+                <button type="submit" class="navbar-button">Cargar</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Manejo de la ventana modal para cargar XML
+        const cargarXmlLink = document.getElementById('cargar-xml-link');
+        const cargarXmlModal = document.getElementById('cargar-xml-modal');
+        const closeModalButton = document.getElementsByClassName('close')[0];
+
+        cargarXmlLink.onclick = function() {
+            cargarXmlModal.style.display = 'block';
+        }
+
+        closeModalButton.onclick = function() {
+            cargarXmlModal.style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == cargarXmlModal) {
+                cargarXmlModal.style.display = 'none';
+            }
+        }
+    </script>
 </body>
 </html>

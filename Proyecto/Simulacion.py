@@ -1,25 +1,19 @@
-from listaEnlazadaSimple import ListaEnlazadaSimple
+from listaEnlazadaDoble import ListaEnlazadaDoble
 
 class Simulacion:
     def __init__(self, maquina, producto):
         self.maquina = maquina
         self.producto = producto
-        self.tiempo_actual = 0
-        self.log = ListaEnlazadaSimple()
+        self.tiempos_lineas = [0] * self.maquina.cantidad_lineas  # Inicializar tiempos de líneas
+        self.log = ListaEnlazadaDoble()
 
     def iniciar_simulacion(self):
-        componente_actual = self.producto.componentes
-        while componente_actual:
-            self.ejecutar_segundo(componente_actual)
-            componente_actual = componente_actual.siguiente
+        for componente in self.producto.componentes:
+            self.ejecutar_segundo(componente)
 
     def ejecutar_segundo(self, componente):
-        # Lógica para mover brazos y ensamblar componentes
-        # Actualizar el log con las acciones realizadas
-        accion = f"Segundo {self.tiempo_actual + 1}: Ensamblar componente {componente.linea}C{componente.numero} en línea {componente.linea}  {self.producto.nombre}"
+        # Encontrar la línea con el menor tiempo acumulado
+        linea_menor_tiempo = self.tiempos_lineas.index(min(self.tiempos_lineas))
+        self.tiempos_lineas[linea_menor_tiempo] += 1  # Incrementar el tiempo de la línea seleccionada
+        accion = f"Segundo {self.tiempos_lineas[linea_menor_tiempo]}: Ensamblar componente {componente.linea}C{componente.numero} en línea {linea_menor_tiempo + 1} {self.producto.nombre}"
         self.log.agregar(accion)
-        self.tiempo_actual += 1
-
-    def generar_log(self):
-        for i in range(self.log.longitud()):
-            print(self.log.obtener(i))

@@ -1,16 +1,14 @@
-from Componente import Componente
+from listaEnlazadaSimple import ListaEnlazadaSimple
 
 class Producto:
     def __init__(self, nombre):
         self.nombre = nombre
-        self.componentes = None
+        self.componentes = ListaEnlazadaSimple()
 
     def agregar_componente(self, linea, numero):
-        nuevo_componente = Componente(linea, numero)
-        if not self.componentes:
-            self.componentes = nuevo_componente
-        else:
-            actual = self.componentes
-            while actual.siguiente:
-                actual = actual.siguiente
-            actual.siguiente = nuevo_componente
+        self.componentes.agregar(Componente(linea, numero))
+
+class Componente:
+    def __init__(self, linea, numero):
+        self.linea = linea
+        self.numero = numero
