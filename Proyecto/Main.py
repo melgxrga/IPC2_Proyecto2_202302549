@@ -190,31 +190,34 @@ def simular_producto():
         
         tabla_ensamblaje = ListaEnlazadaSimple()
         pasos = ListaEnlazadaSimple()
-        brazos = ListaEnlazadaSimple()  # Inicializar los brazos en el componente 1
+        brazos = ListaEnlazadaSimple()  # Inicializar los brazos en el componente 0
 
         for i in range(cantidad_lineas):
-            brazos.agregar(1)
+            brazos.agregar(0)
 
         print("Estado inicial de los brazos:")
         nodo_brazo = brazos.cabeza
+        linea_actual = 1
         while nodo_brazo is not None:
-            print(f"Línea {nodo_brazo.dato} - Componente 1")
+            print(f"Línea {linea_actual} - Componente {nodo_brazo.dato}")
             nodo_brazo = nodo_brazo.siguiente
+            linea_actual += 1
 
-        # Agregar el componente inicial a la lista de pasos
-        for i in range(1, cantidad_lineas + 1):
-            pasos.agregar((i, 1))
-
+        # Agregar los pasos de ensamblaje especificados en el archivo XML
         nodo_componente = producto_seleccionado.componentes.cabeza
         while nodo_componente is not None:
-            pasos.agregar((nodo_componente.dato.linea, nodo_componente.dato.numero))
+            pasos.agregar(nodo_componente.dato)
             nodo_componente = nodo_componente.siguiente
 
         print("Pasos de ensamblaje:")
         nodo_paso = pasos.cabeza
         while nodo_paso is not None:
-            print(nodo_paso.dato)
+            print(f"Línea {nodo_paso.dato.linea}, Componente {nodo_paso.dato.numero}")
             nodo_paso = nodo_paso.siguiente
+
+        # Leer el tiempo de ensamblaje de la máquina
+        tiempo_ensamblaje = 2  # Asumimos que el tiempo de ensamblaje es 2 segundos como se especifica en el XML
+        print(f"Tiempo de ensamblaje leído: {tiempo_ensamblaje} segundos")
 
         tiempo_actual = 1  # Iniciar el tiempo en 1
         while pasos.cabeza is not None:
@@ -226,7 +229,8 @@ def simular_producto():
 
             nodo_paso = pasos.cabeza
             while nodo_paso is not None:
-                linea, componente = nodo_paso.dato
+                linea = nodo_paso.dato.linea
+                componente = nodo_paso.dato.numero
                 nodo_brazo = brazos.buscar(linea - 1)
                 
                 # Mover brazo secuencialmente al componente deseado
@@ -248,10 +252,17 @@ def simular_producto():
                 
                 # Asegurarse de ensamblar solo cuando esté en el componente deseado
                 if nodo_brazo.dato == componente:
-                    print(f"Tiempo {tiempo_actual}: Línea {linea} - Ensamblar en componente {componente}")
-                    nodo_fila = fila.buscar(linea)
-                    if nodo_fila is not None:
-                        nodo_fila.dato = f"Ensamblar en componente {componente}"
+                    for _ in range(tiempo_ensamblaje):
+                        print(f"Tiempo {tiempo_actual}: Línea {linea} - Ensamblar en componente {componente}")
+                        nodo_fila = fila.buscar(linea)
+                        if nodo_fila is not None:
+                            nodo_fila.dato = f"Ensamblar en componente {componente}"
+                        tiempo_actual += 1
+                        fila = ListaEnlazadaSimple()
+                        fila.agregar(tiempo_actual)
+                        for i in range(cantidad_lineas):
+                            fila.agregar("No hace nada")
+                        tabla_ensamblaje.agregar(fila)
                     pasos.eliminar(nodo_paso.dato)
                 nodo_paso = nodo_paso.siguiente
 
@@ -267,13 +278,3 @@ if __name__ == "__main__":
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
         os.makedirs(app.config['UPLOAD_FOLDER'])
     app.run(debug=True)
-
-    class Componente:
-        def __init__(self, linea, numero):
-            self.linea = linea
-            self.numero = numero
-    
-    class PasoEnsamblaje:
-        def __init__(self, linea, componente):
-            self.linea = linea
-            self.componente = componente
