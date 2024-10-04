@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as ET
-from flask import Flask, request, render_template, redirect, url_for, session
+from flask import Flask, request, render_template, redirect, url_for, session, send_file
 from werkzeug.utils import secure_filename
 import os
 from Maquina import Maquina
@@ -10,6 +10,7 @@ from Simulacion import Simulacion
 from TiempoLinea import TiempoLinea
 from Resultado import ResultadoMaquina, ResultadoProducto
 import os
+import graphviz
 
 
 
@@ -196,38 +197,93 @@ class Resultado:
     def __init__(self, dato, lineas):
         self.dato = dato
         self.lineas = lineas
+
     def longitud(self):
         return self.lineas.longitud()
+
     def __str__(self):
         return f"Resultado(dato={self.dato}, lineas={self.lineas})"
 
     def __repr__(self):
         return self.__str__()
 
-def obtener_linea_y_componente(nodo):
-    # Asumiendo que el dato del nodo tiene el formato "LíneaXComponenteY" (por ejemplo, "L2C3")
-    instruccion = nodo.dato  # Acceder al dato del nodo
-    linea = int(instruccion[1])  # Extraer el número de línea (segundo carácter)
-    componente = int(instruccion[3])  # Extraer el número de componente (cuarto carácter)
-    return linea, componente
+    def obtener_instrucciones_pendientes(self):
+        pendientes = ListaEnlazadaSimple()
+        nodo_actual = self.lineas.cabeza
+        while nodo_actual:
+            if nodo_actual.dato != "COMPLETED":
+                pendientes.agregar(nodo_actual.dato)
+            nodo_actual = nodo_actual.siguiente
+        return pendientes
+
+def serializar_lista_enlazada(lista):
+    resultado = ""
+    nodo_actual = lista.cabeza
+    while nodo_actual:
+        resultado += nodo_actual.dato.dato + ":"
+        nodo_linea = nodo_actual.dato.lineas.cabeza
+        while nodo_linea:
+            resultado += nodo_linea.dato
+            if nodo_linea.siguiente:
+                resultado += ","
+            nodo_linea = nodo_linea.siguiente
+        resultado += "|"
+        nodo_actual = nodo_actual.siguiente
+    return resultado.strip('|')
+
+def deserializar_lista_enlazada(cadena):
+    lista = ListaEnlazadaSimple()
+    i = 0
+    while i < len(cadena):
+        dato = ""
+        while i < len(cadena) and cadena[i] != ':':
+            dato += cadena[i]
+            i += 1
+        i += 1  # Saltar el ':'
+        
+        lineas = ListaEnlazadaSimple()
+        linea = ""
+        while i < len(cadena) and cadena[i] != '|':
+            if cadena[i] == ',':
+                lineas.agregar(linea)
+                linea = ""
+            else:
+                linea += cadena[i]
+            i += 1
+        if linea:
+            lineas.agregar(linea)
+        i += 1  # Saltar el '|'
+        
+        resultado = Resultado(dato, lineas)
+        lista.agregar(resultado)
+    return lista
 
 @app.route('/simular_producto', methods=['POST'])
 def simular_producto():
     maquina_seleccionada = request.form.get('maquina')
     producto_seleccionado = request.form.get('producto')
+    tiempo_personalizado_str = request.form.get('tiempo')
+    
+    # Validar tiempo_personalizado
+    if tiempo_personalizado_str and tiempo_personalizado_str.isdigit():
+        tiempo_personalizado = int(tiempo_personalizado_str)
+    else:
+        tiempo_personalizado = None
+    
     resultados = ListaEnlazadaSimple()
 
     # Mostrar en consola los valores recibidos del formulario
     print(f"Máquina seleccionada desde el formulario: {maquina_seleccionada}")
     print(f"Producto seleccionado desde el formulario: {producto_seleccionado}")
+    print(f"Tiempo personalizado de ensamblaje: {tiempo_personalizado}")
 
     if not maquina_seleccionada or not producto_seleccionado:
         print("No se seleccionó una máquina o un producto.")
-        return render_template('index.html', message='Por favor, seleccione una máquina y un producto.', resultados=ListaEnlazadaSimple(), num_lineas=0, tablas_ensamblaje=tablas_ensamblaje)
+        return render_template('index.html', message='Por favor, seleccione una máquina y un producto.', resultados=ListaEnlazadaSimple(), num_lineas=0, tablas_ensamblaje=ListaEnlazadaSimple())
 
     if 'xml_content' not in session:
         print("No se encontró contenido XML en la sesión.")
-        return render_template('index.html', message='Por favor, carga un archivo XML primero.', resultados=ListaEnlazadaSimple(), num_lineas=0, tablas_ensamblaje=tablas_ensamblaje)
+        return render_template('index.html', message='Por favor, carga un archivo XML primero.', resultados=ListaEnlazadaSimple(), num_lineas=0, tablas_ensamblaje=ListaEnlazadaSimple())
 
     xml_content = session['xml_content']
     root = ET.fromstring(xml_content)
@@ -248,36 +304,60 @@ def simular_producto():
                     elaboracion = producto.find('elaboracion').text.strip()
                     print(f"Producto encontrado: {nombre_producto} con elaboración: {elaboracion}")
                     
-                    # Extraer las instrucciones correctamente
+                    # Extraer las instrucciones correctamente sin usar split
                     instrucciones = ListaEnlazadaSimple()
-                    pasos = elaboracion.split()
-                    for paso in pasos:
+                    paso = ""
+                    for char in elaboracion:
+                        if char.isspace():
+                            if paso:
+                                instrucciones.agregar(paso)
+                                paso = ""
+                        else:
+                            paso += char
+                    if paso:
                         instrucciones.agregar(paso)
-                    
+                                
                     brazos = ListaEnlazadaSimple()
                     for _ in range(num_lineas):
                         brazos.agregar(0)
                     
                     segundo = 1
-                    ensamblando_lineas = [0] * num_lineas  # Inicializar el tiempo de ensamblaje para cada línea
+                    ensamblando_lineas = ListaEnlazadaSimple()  # Inicializar el tiempo de ensamblaje para cada línea
+                    for _ in range(num_lineas):
+                        ensamblando_lineas.agregar(0)
+                    
                     while True:
                         fila_tiempo = Resultado(f"{segundo}", ListaEnlazadaSimple())
                         for _ in range(num_lineas):
                             fila_tiempo.lineas.agregar("No hacer nada")
                         
                         ensamblaje_realizado = False
-                        ensamblando = any(ensamblando_lineas)  # Verificar si alguna línea está ensamblando
+                        ensamblando = False
+                        for i in range(ensamblando_lineas.longitud()):
+                            if ensamblando_lineas.obtener(i).dato > 0:
+                                ensamblando = True
+                                break
                         
                         for linea in range(num_lineas):
-                            if ensamblando_lineas[linea] > 0:
+                            if ensamblando_lineas.obtener(linea).dato > 0:
                                 fila_tiempo.lineas.actualizar(linea, f"Ensamblar componente {brazos.obtener(linea).dato}")
-                                ensamblando_lineas[linea] -= 1
+                                ensamblando_lineas.obtener(linea).dato -= 1
                                 ensamblando = True
                             else:
                                 instruccion_actual = None
                                 for i in range(instrucciones.longitud()):
                                     if instrucciones.obtener(i).dato != "COMPLETED":
-                                        linea_instruccion, componente_instruccion = instrucciones.obtener(i).dato[1:].split('C')
+                                        dato = instrucciones.obtener(i).dato
+                                        linea_instruccion = ""
+                                        componente_instruccion = ""
+                                        found_C = False
+                                        for char in dato[1:]:
+                                            if char == 'C':
+                                                found_C = True
+                                            elif not found_C:
+                                                linea_instruccion += char
+                                            else:
+                                                componente_instruccion += char
                                         linea_instruccion = int(linea_instruccion)
                                         componente_instruccion = int(componente_instruccion)
                                         if linea_instruccion - 1 == linea:
@@ -286,7 +366,14 @@ def simular_producto():
                                             break
                                 
                                 if instruccion_actual:
-                                    _, componente_actual = instruccion_actual.dato[1:].split('C')
+                                    dato = instruccion_actual.dato
+                                    componente_actual = ""
+                                    found_C = False
+                                    for char in dato[1:]:
+                                        if char == 'C':
+                                            found_C = True
+                                        elif found_C:
+                                            componente_actual += char
                                     componente_actual = int(componente_actual)
                                     brazo_actual = brazos.obtener(linea).dato
                                     
@@ -312,7 +399,7 @@ def simular_producto():
                                             instrucciones.obtener(instruccion_index).dato = "COMPLETED"
                                             ensamblaje_realizado = True
                                             ensamblando = True  # Marcar que una línea está ensamblando
-                                            ensamblando_lineas[linea] = tiempo_ensamblaje - 1  # Establecer el tiempo de ensamblaje para la línea
+                                            ensamblando_lineas.obtener(linea).dato = tiempo_ensamblaje - 1  # Establecer el tiempo de ensamblaje para la línea
                         
                         # Actualizar las líneas que no están haciendo nada a "No hace nada" si alguna línea está ensamblando
                         if ensamblando:
@@ -331,13 +418,16 @@ def simular_producto():
                         if all_completed:
                             break
                         
+                        if tiempo_personalizado is not None and segundo >= tiempo_personalizado:
+                            break
+                        
                         segundo += 1  # Incrementar el tiempo en 1 segundo
 
                     # Asegurarse de que el último componente también reciba el tiempo de ensamblaje
                     if ensamblaje_realizado:
                         for linea in range(num_lineas):
-                            if ensamblando_lineas[linea] == 0 and fila_tiempo.lineas.obtener(linea).dato.startswith("Ensamblar componente"):
-                                ensamblando_lineas[linea] = tiempo_ensamblaje - 1
+                            if ensamblando_lineas.obtener(linea).dato == 0 and fila_tiempo.lineas.obtener(linea).dato.startswith("Ensamblar componente"):
+                                ensamblando_lineas.obtener(linea).dato = tiempo_ensamblaje - 1
 
     # Mostrar los pasos de la simulación en la consola
     print("Pasos de la simulación:")
@@ -346,16 +436,66 @@ def simular_producto():
         print(nodo_actual.dato)
         nodo_actual = nodo_actual.siguiente
 
+    # Imprimir las instrucciones pendientes en consola
+    print("Instrucciones pendientes en cada segundo:")
+    nodo_actual = resultados.cabeza
+    while nodo_actual:
+        pendientes = ListaEnlazadaSimple()
+        nodo_instruccion = instrucciones.cabeza
+        while nodo_instruccion:
+            if nodo_instruccion.dato != "COMPLETED":
+                pendientes.agregar(nodo_instruccion.dato)
+            nodo_instruccion = nodo_instruccion.siguiente
+        if pendientes.longitud() > 0:
+            print(f"Segundo {nodo_actual.dato.dato}: {pendientes}")
+        nodo_actual = nodo_actual.siguiente
+
     # Agregar la tabla de ensamblaje a la lista de tablas
     tablas_ensamblaje.agregar((producto_seleccionado, resultados))
 
+    # Serializar los resultados y almacenarlos en la sesión
+    session['resultados'] = serializar_lista_enlazada(resultados)
+
     print("Simulación completada. Resultados generados.")
     return render_template('index.html', productos=productos_global, resultados=resultados, maquinas=maquinas_global, num_lineas=num_lineas, tablas_ensamblaje=tablas_ensamblaje)
+
+# Ruta para generar y mostrar el gráfico de Graphviz
+@app.route('/generar_grafico')
+def generar_grafico():
+    resultados_serializados = session.get('resultados')
+    if not resultados_serializados:
+        return "No hay resultados de simulación disponibles."
+
+    # Deserializar los resultados
+    resultados = deserializar_lista_enlazada(resultados_serializados)
+
+    # Generar el gráfico de las instrucciones pendientes
+    dot = graphviz.Digraph(comment='Simulación de Ensamblaje')
+    nodo_actual = resultados.cabeza
+    while nodo_actual:
+        tiempo = int(nodo_actual.dato.dato)  # Convertir a entero
+        for i in range(nodo_actual.dato.lineas.longitud()):
+            instruccion = nodo_actual.dato.lineas.obtener(i).dato
+            if instruccion != "COMPLETED":
+                dot.node(f'{tiempo}_{i}', f'Tiempo {tiempo}: {instruccion}')
+                if tiempo > 1:
+                    dot.edge(f'{tiempo-1}_{i}', f'{tiempo}_{i}')
+        nodo_actual = nodo_actual.siguiente
+
+    # Guardar el gráfico en un archivo
+    dot.render('static/grafico_ensamblaje', format='png')
+
+    return send_file('static/grafico_ensamblaje.png', mimetype='image/png')
+
+
 @app.route('/reporte_html/<producto>', methods=['GET'])
 def reporte_html(producto):
     # Buscar la tabla de ensamblaje correspondiente al producto
     for nombre_producto, resultados in tablas_ensamblaje:
         if nombre_producto == producto:
+            # Determinar el tipo de reporte
+            tipo_reporte = 'personalizado' if any(resultados.obtener(i).dato.dato == '5' for i in range(resultados.longitud())) else 'optimo'
+            
             # Generar el HTML a partir de los resultados
             html_content = f"""
             <html>
@@ -408,7 +548,7 @@ def reporte_html(producto):
             </head>
             <body>
                 <div class="container">
-                    <h1>Reporte de Ensamblaje para {producto}</h1>
+                    <h1>Reporte de Ensamblaje para {producto} ({tipo_reporte.capitalize()})</h1>
                     <table>
                         <tr><th>Tiempo</th>"""
 

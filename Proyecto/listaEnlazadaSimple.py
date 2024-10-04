@@ -22,31 +22,6 @@ class ListaEnlazadaSimple:
                 actual = actual.siguiente
             actual.siguiente = nuevo_nodo
 
-    def obtener(self, indice):
-        actual = self.cabeza
-        for _ in range(indice):
-            if actual is None:
-                return None
-            actual = actual.siguiente
-        return actual
-
-    def eliminar(self, dato):
-        actual = self.cabeza
-        anterior = None
-        while actual and actual.dato != dato:
-            anterior = actual
-            actual = actual.siguiente
-        if anterior is None:
-            self.cabeza = actual.siguiente
-        elif actual:
-            anterior.siguiente = actual.siguiente
-
-    def __iter__(self):
-        actual = self.cabeza
-        while actual:
-            yield actual.dato
-            actual = actual.siguiente
-
     def longitud(self):
         actual = self.cabeza
         contador = 0
@@ -55,13 +30,35 @@ class ListaEnlazadaSimple:
             actual = actual.siguiente
         return contador
 
-    def actualizar(self, indice, nuevo_dato):
+    def obtener(self, indice):
         actual = self.cabeza
-        for _ in range(indice):
-            if actual is None:
-                return False
+        contador = 0
+        while actual:
+            if contador == indice:
+                return actual
+            contador += 1
             actual = actual.siguiente
-        if actual is not None:
-            actual.dato = nuevo_dato
-            return True
-        return False
+        return None
+
+    def actualizar(self, indice, dato):
+        actual = self.cabeza
+        contador = 0
+        while actual:
+            if contador == indice:
+                actual.dato = dato
+                return
+            contador += 1
+            actual = actual.siguiente
+
+    def __str__(self):
+        resultado = ""
+        actual = self.cabeza
+        while actual:
+            resultado += str(actual.dato) + " -> "
+            actual = actual.siguiente
+        return resultado.strip(" -> ")
+    def __iter__(self):
+        actual = self.cabeza
+        while actual:
+            yield actual.dato
+            actual = actual.siguiente

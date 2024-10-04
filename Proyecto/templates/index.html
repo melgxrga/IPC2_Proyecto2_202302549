@@ -40,6 +40,8 @@
                     <option value="{{ producto.nombre }}" {% if producto.nombre == producto_seleccionado %}selected{% endif %}>{{ producto.nombre }}</option>
                 {% endfor %}
             </select>
+            <label for="tiempo">Ingrese el tiempo de ensamblaje (en segundos):</label>
+            <input type="number" name="tiempo" id="tiempo" min="1" placeholder="Tiempo de ensamblaje">
             <button type="submit">Simular</button>
         </form>
     </section>
@@ -79,6 +81,13 @@
         {% endfor %}
     </section>
     {% endif %}
+    
+    <section id="grafico-ensamblaje">
+        <h2>Gráfico de Ensamblaje</h2>
+        <a href="{{ url_for('generar_grafico') }}" target="_blank">
+            <button>Generar Graphviz</button>
+        </a>
+    </section>
     
     <div id="cargar-xml-modal" class="modal">
         <div class="modal-content">
