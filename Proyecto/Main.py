@@ -23,6 +23,7 @@ resultados_global = None
 tablas_ensamblaje = ListaEnlazadaSimple()  # Definir tablas_ensamblaje como una lista enlazada
 elaboraciones_global = ListaEnlazadaSimple()
 
+
 @app.route('/leer_xml', methods=['POST'])
 def leer_xml(ruta_archivo):
     with open(ruta_archivo, 'r', encoding='utf-8') as file:
@@ -48,6 +49,9 @@ def leer_xml(ruta_archivo):
             print(f"Cantidad de líneas de producción: {cantidad_lineas}")
             print(f"Cantidad de componentes: {cantidad_componentes}")
             print(f"Tiempo de ensamblaje: {tiempo_ensamblaje}")
+            
+            # Guardar el tiempo de ensamblaje en la sesión
+            session[f'{nombre_maquina}_tiempo_ensamblaje'] = tiempo_ensamblaje
             
             # Buscar si la máquina ya existe
             maquina_existente = None
@@ -186,8 +190,8 @@ def filtrar_maquina():
             productos_maquina.agregar(nodo_producto.dato)
             nodo_producto = nodo_producto.siguiente
     
-    return render_template('index.html', productos=productos_maquina, resultados=resultados_global, maquinas=maquinas_global, tablas_ensamblaje=tablas_ensamblaje)
-
+    return render_template('index.html', productos=productos_maquina, resultados=resultados_global, maquinas=maquinas_global, tablas_ensamblaje=tablas_ensamblaje, maquina_seleccionada=maquina_nombre)
+    
 class Resultado:
     def __init__(self, dato, lineas):
         self.dato = dato
@@ -206,13 +210,16 @@ def obtener_linea_y_componente(nodo):
     linea = int(instruccion[1])  # Extraer el número de línea (segundo carácter)
     componente = int(instruccion[3])  # Extraer el número de componente (cuarto carácter)
     return linea, componente
+
 @app.route('/simular_producto', methods=['POST'])
 def simular_producto():
     maquina_seleccionada = request.form.get('maquina')
     producto_seleccionado = request.form.get('producto')
     resultados = ListaEnlazadaSimple()
 
-    print(f"Simulación iniciada para la máquina: {maquina_seleccionada} y el producto: {producto_seleccionado}")
+    # Mostrar en consola los valores recibidos del formulario
+    print(f"Máquina seleccionada desde el formulario: {maquina_seleccionada}")
+    print(f"Producto seleccionado desde el formulario: {producto_seleccionado}")
 
     if not maquina_seleccionada or not producto_seleccionado:
         print("No se seleccionó una máquina o un producto.")
@@ -226,20 +233,25 @@ def simular_producto():
     root = ET.fromstring(xml_content)
 
     num_lineas = 0  # Inicializar num_lineas
+    tiempo_ensamblaje = 0  # Inicializar tiempo de ensamblaje
     for maquina in root.findall('Maquina'):
         nombre_maquina = maquina.find('NombreMaquina').text
         if nombre_maquina == maquina_seleccionada:
             num_lineas = int(maquina.find('CantidadLineasProduccion').text)
+            tiempo_ensamblaje = int(maquina.find('TiempoEnsamblaje').text)
             print(f"Máquina encontrada: {nombre_maquina} con {num_lineas} líneas de producción.")
+            print(f"Tiempo de ensamblaje: {tiempo_ensamblaje}")
 
             for producto in maquina.find('ListadoProductos').findall('Producto'):
                 nombre_producto = producto.find('nombre').text
                 if nombre_producto == producto_seleccionado:
-                    elaboracion = producto.find('elaboracion').text.strip().split()
+                    elaboracion = producto.find('elaboracion').text.strip()
                     print(f"Producto encontrado: {nombre_producto} con elaboración: {elaboracion}")
                     
+                    # Extraer las instrucciones correctamente
                     instrucciones = ListaEnlazadaSimple()
-                    for paso in elaboracion:
+                    pasos = elaboracion.split()
+                    for paso in pasos:
                         instrucciones.agregar(paso)
                     
                     brazos = ListaEnlazadaSimple()
@@ -247,51 +259,60 @@ def simular_producto():
                         brazos.agregar(0)
                     
                     segundo = 1
+                    ensamblando_lineas = [0] * num_lineas  # Inicializar el tiempo de ensamblaje para cada línea
                     while True:
                         fila_tiempo = Resultado(f"{segundo}", ListaEnlazadaSimple())
                         for _ in range(num_lineas):
                             fila_tiempo.lineas.agregar("No hacer nada")
                         
                         ensamblaje_realizado = False
-                        ensamblando = False  # Bandera para verificar si alguna línea está ensamblando
+                        ensamblando = any(ensamblando_lineas)  # Verificar si alguna línea está ensamblando
                         
                         for linea in range(num_lineas):
-                            instruccion_actual = None
-                            for i in range(instrucciones.longitud()):
-                                if instrucciones.obtener(i).dato != "COMPLETED":
-                                    linea_instruccion, _ = obtener_linea_y_componente(instrucciones.obtener(i))
-                                    if linea_instruccion - 1 == linea:
-                                        instruccion_actual = instrucciones.obtener(i)
-                                        instruccion_index = i
-                                        break
-                            
-                            if instruccion_actual:
-                                _, componente_actual = obtener_linea_y_componente(instruccion_actual)
-                                brazo_actual = brazos.obtener(linea).dato
-                                
-                                if ensamblando:
-                                    fila_tiempo.lineas.actualizar(linea, "No hace nada")
-                                elif brazo_actual < componente_actual:
-                                    brazo_actual += 1
-                                    fila_tiempo.lineas.actualizar(linea, f"Mover brazo – componente {brazo_actual}")
-                                    brazos.obtener(linea).dato = brazo_actual
-                                elif brazo_actual > componente_actual:
-                                    brazo_actual -= 1
-                                    fila_tiempo.lineas.actualizar(linea, f"Mover brazo – componente {brazo_actual}")
-                                    brazos.obtener(linea).dato = brazo_actual
-                                elif brazo_actual == componente_actual and not ensamblaje_realizado:
-                                    # Verificar si es el turno de esta instrucción
-                                    can_assemble = True
-                                    for j in range(instruccion_index):
-                                        if instrucciones.obtener(j).dato != "COMPLETED":
-                                            can_assemble = False
+                            if ensamblando_lineas[linea] > 0:
+                                fila_tiempo.lineas.actualizar(linea, f"Ensamblar componente {brazos.obtener(linea).dato}")
+                                ensamblando_lineas[linea] -= 1
+                                ensamblando = True
+                            else:
+                                instruccion_actual = None
+                                for i in range(instrucciones.longitud()):
+                                    if instrucciones.obtener(i).dato != "COMPLETED":
+                                        linea_instruccion, componente_instruccion = instrucciones.obtener(i).dato[1:].split('C')
+                                        linea_instruccion = int(linea_instruccion)
+                                        componente_instruccion = int(componente_instruccion)
+                                        if linea_instruccion - 1 == linea:
+                                            instruccion_actual = instrucciones.obtener(i)
+                                            instruccion_index = i
                                             break
+                                
+                                if instruccion_actual:
+                                    _, componente_actual = instruccion_actual.dato[1:].split('C')
+                                    componente_actual = int(componente_actual)
+                                    brazo_actual = brazos.obtener(linea).dato
                                     
-                                    if can_assemble:
-                                        fila_tiempo.lineas.actualizar(linea, f"Ensamblar componente {componente_actual}")
-                                        instrucciones.obtener(instruccion_index).dato = "COMPLETED"
-                                        ensamblaje_realizado = True
-                                        ensamblando = True  # Marcar que una línea está ensamblando
+                                    if ensamblando and brazo_actual == componente_actual:
+                                        fila_tiempo.lineas.actualizar(linea, "No hace nada")
+                                    elif brazo_actual < componente_actual:
+                                        brazo_actual += 1
+                                        fila_tiempo.lineas.actualizar(linea, f"Mover brazo – componente {brazo_actual}")
+                                        brazos.obtener(linea).dato = brazo_actual
+                                    elif brazo_actual > componente_actual:
+                                        # No permitir decremento de componentes
+                                        fila_tiempo.lineas.actualizar(linea, "No hace nada")
+                                    elif brazo_actual == componente_actual and not ensamblaje_realizado and not ensamblando:
+                                        # Verificar si es el turno de esta instrucción
+                                        can_assemble = True
+                                        for j in range(instruccion_index):
+                                            if instrucciones.obtener(j).dato != "COMPLETED":
+                                                can_assemble = False
+                                                break
+                                        
+                                        if can_assemble:
+                                            fila_tiempo.lineas.actualizar(linea, f"Ensamblar componente {componente_actual}")
+                                            instrucciones.obtener(instruccion_index).dato = "COMPLETED"
+                                            ensamblaje_realizado = True
+                                            ensamblando = True  # Marcar que una línea está ensamblando
+                                            ensamblando_lineas[linea] = tiempo_ensamblaje - 1  # Establecer el tiempo de ensamblaje para la línea
                         
                         # Actualizar las líneas que no están haciendo nada a "No hace nada" si alguna línea está ensamblando
                         if ensamblando:
@@ -310,12 +331,19 @@ def simular_producto():
                         if all_completed:
                             break
                         
-                        segundo += 1
+                        segundo += 1  # Incrementar el tiempo en 1 segundo
+
+                    # Asegurarse de que el último componente también reciba el tiempo de ensamblaje
+                    if ensamblaje_realizado:
+                        for linea in range(num_lineas):
+                            if ensamblando_lineas[linea] == 0 and fila_tiempo.lineas.obtener(linea).dato.startswith("Ensamblar componente"):
+                                ensamblando_lineas[linea] = tiempo_ensamblaje - 1
 
     # Mostrar los pasos de la simulación en la consola
     print("Pasos de la simulación:")
     nodo_actual = resultados.cabeza
     while nodo_actual:
+        print(nodo_actual.dato)
         nodo_actual = nodo_actual.siguiente
 
     # Agregar la tabla de ensamblaje a la lista de tablas
@@ -323,6 +351,97 @@ def simular_producto():
 
     print("Simulación completada. Resultados generados.")
     return render_template('index.html', productos=productos_global, resultados=resultados, maquinas=maquinas_global, num_lineas=num_lineas, tablas_ensamblaje=tablas_ensamblaje)
+@app.route('/reporte_html/<producto>', methods=['GET'])
+def reporte_html(producto):
+    # Buscar la tabla de ensamblaje correspondiente al producto
+    for nombre_producto, resultados in tablas_ensamblaje:
+        if nombre_producto == producto:
+            # Generar el HTML a partir de los resultados
+            html_content = f"""
+            <html>
+            <head>
+                <title>Reporte de Ensamblaje</title>
+                <style>
+                    body {{
+                        font-family: Arial, sans-serif;
+                        background-color: #f0f0f0;
+                        color: #333;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        height: 100vh;
+                        margin: 0;
+                    }}
+                    .container {{
+                        background-color: #fff;
+                        padding: 20px;
+                        border-radius: 8px;
+                        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                        max-width: 800px;
+                        width: 100%;
+                    }}
+                    h1 {{
+                        text-align: center;
+                        color: #444;
+                    }}
+                    table {{
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 20px;
+                    }}
+                    th, td {{
+                        border: 1px solid #ddd;
+                        padding: 8px;
+                        text-align: center;
+                    }}
+                    th {{
+                        background-color: #f2f2f2;
+                        color: #333;
+                    }}
+                    tr:nth-child(even) {{
+                        background-color: #f9f9f9;
+                    }}
+                    tr:hover {{
+                        background-color: #f1f1f1;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>Reporte de Ensamblaje para {producto}</h1>
+                    <table>
+                        <tr><th>Tiempo</th>"""
+
+            # Añadir encabezados de las líneas de ensamblaje
+            if resultados.cabeza:
+                primera_fila = resultados.cabeza.dato
+                for i in range(primera_fila.lineas.longitud()):
+                    html_content += f"<th>Línea de Ensamblaje {i + 1}</th>"
+            html_content += "</tr>"
+
+            # Añadir filas de resultados
+            nodo_actual = resultados.cabeza
+            while nodo_actual:
+                html_content += f"<tr><td>{nodo_actual.dato.dato}</td>"
+                for i in range(nodo_actual.dato.lineas.longitud()):
+                    html_content += f"<td>{nodo_actual.dato.lineas.obtener(i).dato}</td>"
+                html_content += "</tr>"
+                nodo_actual = nodo_actual.siguiente
+
+            html_content += """
+                    </table>
+                </div>
+            </body>
+            </html>
+            """
+
+            # Guardar el HTML en un archivo
+            with open(f"reporte_{producto}.html", "w") as file:
+                file.write(html_content)
+
+            return html_content
+
+    return "Producto no encontrado", 404
 
 if __name__ == "__main__":
     if not os.path.exists(app.config['UPLOAD_FOLDER']):

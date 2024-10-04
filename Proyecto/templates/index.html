@@ -15,29 +15,34 @@
         </ul>
     </nav>
 
-    <h2>Simulación de ensamblaje</h2>
-<section id="seleccion-maquina-producto"></section>
-    <h2>Seleccionar Máquina y Producto para Simulación</h2>
-    <form method="POST" action="{{ url_for('simular_producto') }}" id="simulacion-form">
-        <label for="maquina">Seleccione la máquina:</label>
-        <select name="maquina" id="maquina">
-            {% for maquina in maquinas %}
-                <option value="{{ maquina.nombre }}">{{ maquina.nombre }}</option>
-            {% endfor %}
-        </select>
-        <label for="producto">Seleccione el producto:</label>
-        <select name="producto" id="producto">
-            {% if productos %}
-                {% for producto in productos %}
-                    <option value="{{ producto.nombre }}">{{ producto.nombre }}</option>
+    <section id="seleccion-maquina-producto">
+        <h2>Seleccionar Máquina y Producto para Simulación</h2>
+        
+        <!-- Formulario para seleccionar la máquina -->
+        <form method="POST" action="{{ url_for('filtrar_maquina') }}" id="seleccion-maquina-form">
+            <label for="maquina">Seleccione la máquina:</label>
+            <select name="maquina" id="maquina">
+                <option value="" disabled {% if not maquina_seleccionada %}selected{% endif %}>Seleccione una máquina</option>
+                {% for maquina in maquinas %}
+                    <option value="{{ maquina.nombre }}" {% if maquina.nombre == maquina_seleccionada %}selected{% endif %}>{{ maquina.nombre }}</option>
                 {% endfor %}
-            {% else %}
-                <option value="" disabled>No hay productos disponibles</option>
-            {% endif %}
-        </select>
-        <button type="submit">Simular</button>
-    </form>
-</section>
+            </select>
+            <button type="submit">Filtrar Productos</button>
+        </form>
+
+        <!-- Formulario para seleccionar el producto y simular -->
+        <form method="POST" action="{{ url_for('simular_producto') }}" id="simulacion-form">
+            <input type="hidden" name="maquina" value="{{ maquina_seleccionada }}">
+            <label for="producto">Seleccione el producto:</label>
+            <select name="producto" id="producto">
+                <option value="" disabled {% if not producto_seleccionado %}selected{% endif %}>Seleccione un producto</option>
+                {% for producto in productos %}
+                    <option value="{{ producto.nombre }}" {% if producto.nombre == producto_seleccionado %}selected{% endif %}>{{ producto.nombre }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Simular</button>
+        </form>
+    </section>
 
     {% if tablas_ensamblaje %}
     <section id="tablas-ensamblaje">
@@ -67,6 +72,10 @@
                     {% endfor %}
                 </tbody>
             </table>
+            <!-- Botón para generar el reporte HTML -->
+            <form action="{{ url_for('reporte_html', producto=producto_nombre) }}" method="get">
+                <button type="submit">Reporte HTML</button>
+            </form>
         {% endfor %}
     </section>
     {% endif %}
@@ -83,36 +92,26 @@
         </div>
     </div>
 
-  <script>
-    // Manejo de la ventana modal para cargar XML
-    const cargarXmlLink = document.getElementById('cargar-xml-link');
-    const cargarXmlModal = document.getElementById('cargar-xml-modal');
-    const closeModalButton = document.getElementsByClassName('close')[0];
-
-    cargarXmlLink.onclick = function() {
-        cargarXmlModal.style.display = 'block';
-    }
-
-    closeModalButton.onclick = function() {
-        cargarXmlModal.style.display = 'none';
-    }
-
-    window.onclick = function(event) {
-        if (event.target == cargarXmlModal) {
+    <script>
+        // Manejo de la ventana modal para cargar XML
+        const cargarXmlLink = document.getElementById('cargar-xml-link');
+        const cargarXmlModal = document.getElementById('cargar-xml-modal');
+        const closeModalButton = document.getElementsByClassName('close')[0];
+    
+        cargarXmlLink.onclick = function() {
+            cargarXmlModal.style.display = 'block';
+        }
+    
+        closeModalButton.onclick = function() {
             cargarXmlModal.style.display = 'none';
         }
-    }
+    
+        window.onclick = function(event) {
+            if (event.target == cargarXmlModal) {
+                cargarXmlModal.style.display = 'none';
+            }
+        }
 
-    // Limpiar los combobox después de cada simulación
-    const simulacionForm = document.getElementById('simulacion-form');
-    simulacionForm.onsubmit = function() {
-        const maquinaSeleccionada = document.getElementById('maquina').value;
-        const productoSeleccionado = document.getElementById('producto').value;
-        console.log(`Máquina seleccionada: ${maquinaSeleccionada}`);
-        console.log(`Producto seleccionado: ${productoSeleccionado}`);
-        document.getElementById('maquina').selectedIndex = 0;
-        document.getElementById('producto').selectedIndex = 0;
-    }
-</script>
+    </script>
 </body>
 </html>
