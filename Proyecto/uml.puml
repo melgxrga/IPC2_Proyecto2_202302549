@@ -1,0 +1,19 @@
+@startuml
+start
+
+:Seleccionar Producto;
+:Configurar cantidad de líneas;
+:Configurar tiempo de ensamblaje;
+
+if (Producto válido?) then (sí)
+    :Iniciar Simulación;
+    :Simular Producto;
+    :Generar Resultados;
+    :Agregar Producto a ResultadoMaquina;
+else (no)
+    :Mostrar Error;
+endif
+
+:Finalizar Simulación;
+stop
+@enduml
