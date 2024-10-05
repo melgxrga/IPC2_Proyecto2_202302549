@@ -24,7 +24,17 @@ resultados_global = None
 tablas_ensamblaje = ListaEnlazadaSimple()  # Definir tablas_ensamblaje como una lista enlazada
 elaboraciones_global = ListaEnlazadaSimple()
 
-
+@app.route('/borrar_datos', methods=['POST'])
+def borrar_datos():
+    global productos_global, maquinas_global, resultados_global, tablas_ensamblaje, elaboraciones_global
+    productos_global = ListaEnlazadaSimple()
+    maquinas_global = ListaEnlazadaSimple()
+    resultados_global = None
+    tablas_ensamblaje = ListaEnlazadaSimple()
+    elaboraciones_global = ListaEnlazadaSimple()
+    session.clear()  # Limpiar la sesión
+    return redirect(url_for('index'))
+    
 @app.route('/leer_xml', methods=['POST'])
 def leer_xml(ruta_archivo):
     with open(ruta_archivo, 'r', encoding='utf-8') as file:
