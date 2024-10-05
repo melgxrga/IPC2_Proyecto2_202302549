@@ -1,36 +1,14 @@
 // Simulación de Ensamblaje
 digraph {
-	"1_0" [label="Tiempo 1: Mover brazo – componente 1"]
-	"1_1" [label="Tiempo 1: Mover brazo – componente 1"]
-	"1_2" [label="Tiempo 1: Mover brazo – componente 1"]
-	"2_0" [label="Tiempo 2: Mover brazo – componente 2"]
-	"1_0" -> "2_0"
-	"2_1" [label="Tiempo 2: Mover brazo – componente 2"]
-	"1_1" -> "2_1"
-	"2_2" [label="Tiempo 2: Mover brazo – componente 2"]
-	"1_2" -> "2_2"
-	"3_0" [label="Tiempo 3: No hacer nada"]
-	"2_0" -> "3_0"
-	"3_1" [label="Tiempo 3: Mover brazo – componente 3"]
-	"2_1" -> "3_1"
-	"3_2" [label="Tiempo 3: No hacer nada"]
-	"2_2" -> "3_2"
-	"4_0" [label="Tiempo 4: No hace nada"]
-	"3_0" -> "4_0"
-	"4_1" [label="Tiempo 4: Ensamblar componente 3"]
-	"3_1" -> "4_1"
-	"4_2" [label="Tiempo 4: No hace nada"]
-	"3_2" -> "4_2"
-	"5_0" [label="Tiempo 5: No hace nada"]
-	"4_0" -> "5_0"
-	"5_1" [label="Tiempo 5: Ensamblar componente 3"]
-	"4_1" -> "5_1"
-	"5_2" [label="Tiempo 5: No hace nada"]
-	"4_2" -> "5_2"
-	"6_0" [label="Tiempo 6: No hace nada"]
-	"5_0" -> "6_0"
-	"6_1" [label="Tiempo 6: Mover brazo – componente 4"]
-	"5_1" -> "6_1"
-	"6_2" [label="Tiempo 6: Ensamblar componente 2"]
-	"5_2" -> "6_2"
+	"11_0" [label=L1C10]
+	"12_0" [label=L1C10]
+	"11_0" -> "12_0"
+	"13_0" [label=L1C10]
+	"12_0" -> "13_0"
+	"14_0" [label=L1C10]
+	"13_0" -> "14_0"
+	"15_0" [label=L1C10]
+	"14_0" -> "15_0"
+	"16_1" [label=L2C8]
+	"15_0" -> "16_1"
 }
